@@ -38,17 +38,17 @@ public:
 
       // Sample time to detect the rising edge. Depending on the hardware, values
       // are in the range of 2 to 50 ms.
-      unsigned long risingUsec;
+      uint32_t risingUsec;
 
       // Minimum time to hold note. The settle time to check for release again,
       // the hardware may bounce to zero, while the note is still held.
-      unsigned long holdUsec;
+      uint32_t holdUsec;
 
       // Time to delay pressure/aftertouch events after detectiing a 'hit'.
-      unsigned long pressureDelayUsec;
+      uint32_t pressureDelayUsec;
 
       // Time for the release to settle.
-      unsigned long releaseUsec;
+      uint32_t releaseUsec;
     } hit;
 
     struct {
@@ -73,10 +73,10 @@ public:
   // Sample the FSR resistance and emit pressure events. A fast rising edge
   // will emit a hit event, the release to idle will clear it.
   void loop() {
-    if ((unsigned long)(micros() - _now.usec) < 500)
+    if (V2Base::getUsecSince(_now.usec) < 500)
       return;
 
-    _now.usec = micros();
+    _now.usec = V2Base::getUsec();
 
     measure();
     sendPressure();
@@ -86,7 +86,7 @@ public:
         if (_now.step == 0)
           break;
 
-        _rising.usec = micros();
+        _rising.usec = V2Base::getUsec();
         _now.state   = State::Rising;
         break;
 
@@ -101,7 +101,7 @@ public:
           _rising.pressure = _now.fraction;
 
         // Sample timespan.
-        if ((unsigned long)(micros() - _rising.usec) < _config->hit.risingUsec)
+        if (V2Base::getUsecSince(_rising.usec) < _config->hit.risingUsec)
           break;
 
         // Require minimum rise distance. If we rise too slow, it is not a hit.
@@ -125,23 +125,23 @@ public:
         fraction = powf(fraction, _config->hit.exponent);
 
         _hit.velocity = ceilf(fraction * (_config->nSteps - 1));
-        _hit.usec     = micros();
+        _hit.usec     = V2Base::getUsec();
         _now.state    = State::HitHold;
         handleHit(_hit.velocity);
       } break;
 
       case State::HitHold:
         if (_hit.holdUsec == 0) {
-          _hit.holdUsec = micros();
-          _falling.usec = micros();
+          _hit.holdUsec = V2Base::getUsec();
+          _falling.usec = V2Base::getUsec();
         }
 
-        if ((unsigned long)(micros() - _hit.holdUsec) < _config->hit.holdUsec)
+        if (V2Base::getUsecSince(_hit.holdUsec) < _config->hit.holdUsec)
           break;
 
         // Clear the falling duration whenever the pressure rises again.
         if (_now.step >= _falling.step) {
-          _falling.usec = micros();
+          _falling.usec = V2Base::getUsec();
           _falling.step = _now.step;
         }
 
@@ -152,14 +152,14 @@ public:
         }
 
         // If we stay in 'Hold', enable the pressure events only after the delay timespan.
-        if ((unsigned long)(micros() - _hit.holdUsec) > _config->hit.pressureDelayUsec)
+        if (V2Base::getUsecSince(_hit.holdUsec) > _config->hit.pressureDelayUsec)
           _pressure.enabled = true;
         break;
 
       case State::HitRelease: {
-        _hit.releaseUsec = micros();
+        _hit.releaseUsec = V2Base::getUsec();
 
-        unsigned long duration = _hit.releaseUsec - _falling.usec;
+        uint32_t duration = _hit.releaseUsec - _falling.usec;
         if (duration > _config->release.maxUsec)
           duration = _config->release.maxUsec;
         else if (duration < _config->release.minUsec)
@@ -178,7 +178,7 @@ public:
           break;
 
         // Wait for the release to settle.
-        if ((unsigned long)(micros() - _hit.releaseUsec) < _config->hit.releaseUsec)
+        if (V2Base::getUsecSince(_hit.releaseUsec) < _config->hit.releaseUsec)
           break;
 
         _now    = {};
@@ -249,7 +249,7 @@ private:
 
   struct {
     State state;
-    unsigned long usec;
+    uint32_t usec;
     float analog;
     float fraction;
     uint16_t step;
@@ -266,7 +266,7 @@ private:
   struct {
     float fraction;
     uint8_t step;
-    unsigned long usec;
+    uint32_t usec;
     bool enabled;
     bool sent;
     bool rawSent;
@@ -274,18 +274,18 @@ private:
 
   struct {
     float pressure;
-    unsigned long usec;
+    uint32_t usec;
   } _rising{};
 
   struct {
     uint8_t velocity;
-    unsigned long usec;
-    unsigned long holdUsec;
-    unsigned long releaseUsec;
+    uint32_t usec;
+    uint32_t holdUsec;
+    uint32_t releaseUsec;
   } _hit{};
 
   struct {
-    unsigned long usec;
+    uint32_t usec;
     uint16_t step;
     uint8_t velocity;
   } _falling{};
@@ -327,7 +327,7 @@ private:
     if (_pressure.step == _now.step)
       return;
 
-    if ((unsigned long)(micros() - _pressure.usec) < 20 * 1000)
+    if (V2Base::getUsecSince(_pressure.usec) < 20 * 1000)
       return;
 
     // Reposition the edge of the lag. We follow monotonic changes immediately,
@@ -338,7 +338,7 @@ private:
     else
       _history.lag = _now.fraction + _config->lag;
 
-    _pressure.usec     = micros();
+    _pressure.usec     = V2Base::getUsec();
     _pressure.fraction = _now.fraction;
     _pressure.step     = _now.step;
 

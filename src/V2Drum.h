@@ -1,11 +1,10 @@
-// © Kay Sievers <kay@versioduo.com>, 2020-2023
+// © Kay Sievers <kay@versioduo.com>, 2020-2024
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-
 #include <Arduino.h>
 
-class V2FSR {
+class V2Drum {
 public:
   struct Config {
     // The number of steps to map the measurement to. 128 steps will emit values
@@ -58,7 +57,7 @@ public:
     } release;
   };
 
-  constexpr V2FSR(const struct Config *config) : _config(config) {}
+  constexpr V2Drum(const struct Config* config) : _config(config) {}
   void begin() {}
 
   void reset() {
@@ -68,10 +67,10 @@ public:
     _rising   = {};
     _hit      = {};
     _falling  = {};
-  };
+  }
 
-  // Sample the FSR resistance and emit pressure events. A fast rising edge
-  // will emit a hit event, the release to idle will clear it.
+  // Measure and emit pressure events. A fast rising edge will emit a hit event,
+  // the release to idle will clear it.
   void loop() {
     if (V2Base::getUsecSince(_now.usec) < 500)
       return;
@@ -188,6 +187,7 @@ public:
         // Make sure we send zeros if we sent out non-zero values.
         if (_pressure.sent)
           handlePressure(0, 0);
+
         if (_pressure.rawSent)
           handlePressureRaw(0, 0);
         _pressure = {};
@@ -208,12 +208,11 @@ protected:
   // Normalized 0...1 analog measurement.
   virtual float handleMeasurement() = 0;
 
-  // Sent whenever the step value changes. It does not wait for the 'Hit'
-  // detection.
+  // Sent whenever the step value changes.
   virtual void handlePressureRaw(float fraction, uint16_t step) {}
 
-  // Sent whenever the step value changes. It is guaranteed to be emitted
-  // after the 'Hit' event, when a 'Hit' is detected.
+  // Sent whenever the step value changes. If a 'Hit' event is generated in tthis transition
+  // transition, it is guaranteed to be emitted after the 'Hit.
   virtual void handlePressure(float fraction, uint16_t step) {}
 
   // Sent when a 'Hit' was detected.
@@ -245,13 +244,13 @@ private:
     Release
   };
 
-  const struct Config *_config;
+  const struct Config* _config;
 
   struct {
-    State state;
+    State    state;
     uint32_t usec;
-    float analog;
-    float fraction;
+    float    analog;
+    float    fraction;
     uint16_t step;
   } _now{};
 
@@ -264,21 +263,21 @@ private:
   } _history{};
 
   struct {
-    float fraction;
-    uint8_t step;
+    float    fraction;
+    uint8_t  step;
     uint32_t usec;
-    bool enabled;
-    bool sent;
-    bool rawSent;
+    bool     enabled;
+    bool     sent;
+    bool     rawSent;
   } _pressure{};
 
   struct {
-    float pressure;
+    float    pressure;
     uint32_t usec;
   } _rising{};
 
   struct {
-    uint8_t velocity;
+    uint8_t  velocity;
     uint32_t usec;
     uint32_t holdUsec;
     uint32_t releaseUsec;
@@ -287,7 +286,7 @@ private:
   struct {
     uint32_t usec;
     uint16_t step;
-    uint8_t velocity;
+    uint8_t  velocity;
   } _falling{};
 
   void measure() {
@@ -353,5 +352,5 @@ private:
 
     _pressure.rawSent = true;
     handlePressureRaw(_now.fraction, _now.step);
-  };
+  }
 };
